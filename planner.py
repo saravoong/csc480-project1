@@ -39,6 +39,7 @@ class Node:
         self.cost = cost_so_far
 
     def find_path(self):
+        # Reconstructs the path from the start to the current node
         path = []
         current_node = self
         while current_node and current_node.action is not None:
@@ -47,7 +48,8 @@ class Node:
         path.reverse()
         return path
 
-def get_actions(current_node, num_rows, num_cols, grid_data):
+def get_actions(current_node, num_rows, num_cols, grid):
+    # Generates possible children nodes from current node 
     current_r, current_c = current_node.location
     children = []
 
@@ -63,6 +65,7 @@ def get_actions(current_node, num_rows, num_cols, grid_data):
     if current_node.location in current_node.remaining_dirty_cells:
         new_dirty_cells = current_node.remaining_dirty_cells - {current_node.location}
         clean_cost = current_node.cost + 1
+        # now node is clean
         child_node = Node(current_node.location, new_dirty_cells, current_node, 'V', clean_cost)
         children.append(child_node)
 
@@ -73,10 +76,11 @@ def get_actions(current_node, num_rows, num_cols, grid_data):
         # See if neighbor is valid (within grid boundaries and not blocked(#))
         if not (0 <= new_r < num_rows and 0 <= new_c < num_cols):
             continue
-        if grid_data[new_r][new_c] == '#':
+        if grid[new_r][new_c] == '#':
             continue 
 
-        move_cost = current_node.cost + 1
+        move_cost = current_node.cost + 1 # each move is a cost of 1
+        # create new node to represent after state
         child_node = Node((new_r, new_c), current_node.remaining_dirty_cells, current_node, action_name, move_cost)
         children.append(child_node)
 
@@ -111,6 +115,7 @@ def dfs(num_rows, num_cols, grid_initial_data, robot_start_loc, dirty_cells_init
         # Generate children from the current node
         children = get_actions(current_node, num_rows, num_cols, grid_initial_data)
         
+        # iterate through generated children in reverse order, dfs will be explored deterministically
         for child in reversed(children): 
             # Only add to stack (generate) if this state has not been visited yet
             if child.state not in visited_states:
@@ -123,11 +128,11 @@ def ucs(num_rows, num_cols, grid_initial_data, robot_start_loc, dirty_cells_init
     start_node = Node(robot_start_loc, dirty_cells_initial)
 
     p_queue = []
-    distance_map = {}
+    distance_map = {} # dictionary that maps states to the minimum cost found so far 
 
     nodes_generated = 0
     nodes_expanded = 0
-    counter = 0  # manual tiebreaker
+    counter = 0  # manual tiebreaker, if nodes have same cost, smaller counter is chosen
 
     distance_map[start_node.state] = 0
     heapq.heappush(p_queue, (0, counter, start_node))
@@ -137,16 +142,18 @@ def ucs(num_rows, num_cols, grid_initial_data, robot_start_loc, dirty_cells_init
     while p_queue:
         cost, _, current_node = heapq.heappop(p_queue)
 
-        state_key = current_node.state
+        state_key = current_node.state # Get the state of the current node
 
         if cost > distance_map.get(state_key, float('inf')):
             continue 
 
         nodes_expanded += 1
 
+        # check if all dirty cells are cleaned in the node's state
         if not current_node.remaining_dirty_cells:
             return current_node.find_path(), nodes_generated, nodes_expanded
 
+        # Generate all valid successor nodes (children) from the current node
         children = get_actions(current_node, num_rows, num_cols, grid_initial_data)
 
         for child in children:
